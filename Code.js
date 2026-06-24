@@ -133,6 +133,12 @@ function doPost(e) {
     } else if (action === 'get_deliveries') {
       return ContentService.createTextOutput(JSON.stringify(getDeliveries()))
         .setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'get_sheet_names') {
+      var ss = getSpreadsheet();
+      var sheets = ss.getSheets();
+      var names = sheets.map(function(s) { return s.getName(); });
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: names }))
+        .setMimeType(ContentService.MimeType.JSON);
     } else if (action === 'update_status') {
       var result = updateDeliveryStatus(data.data.id, data.data.status, data.data.comment);
       return ContentService.createTextOutput(JSON.stringify(result))
@@ -1710,8 +1716,16 @@ function syncAlserData() {
     if (newDeliveriesToAdd.length > 0) {
       var ss = getSpreadsheet();
       var sheet = ss.getSheetByName('Заміри');
+      if (!sheet) {
+         sheet = ss.insertSheet('Заміри');
+         sheet.getRange(1, 1, 1, 10).setValues([['ID', 'Час', 'Автомобіль', 'Водій', 'Клієнт', 'Адреса', 'Телефон', 'Статус', 'Дата', 'Коментар']]);
+      }
       if (sheet) {
         var headers = sheet.getDataRange().getValues()[0];
+        if (!headers || headers.length === 0 || !headers[0]) {
+           headers = ['ID', 'Час', 'Автомобіль', 'Водій', 'Клієнт', 'Адреса', 'Телефон', 'Статус', 'Дата', 'Коментар'];
+           sheet.getRange(1, 1, 1, 10).setValues([headers]);
+        }
         var rowsToAdd = newDeliveriesToAdd.map(function(d) {
           return headers.map(function(header) {
             var h = header.toString().trim().toLowerCase();
