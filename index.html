@@ -3524,7 +3524,7 @@ function renderClients() {
       const originalText = btn.innerHTML;
       btn.innerHTML = '<i data-lucide="loader" class="spin" style="width: 16px; height: 16px;"></i> Завантаження...';
       btn.disabled = true;
-      
+      const ts = state.currentDate ? state.currentDate.getTime() : new Date().getTime();
       alserApi
         .withSuccessHandler(function(res) {
           btn.innerHTML = originalText;
@@ -3543,7 +3543,7 @@ function renderClients() {
           lucide.createIcons();
           alert('Помилка сервера: ' + err);
         })
-        .syncAlserData();
+        .syncAlserData(ts);
     }
 
     function initApp() {

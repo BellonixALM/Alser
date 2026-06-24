@@ -1553,7 +1553,7 @@ function initSetup() {
 }
 
 
-function syncAlserData() {
+function syncAlserData(clientTimestamp) {
   var loginUrl = "https://api.alser.ua/calendar/login.php";
   var payload = {
     'login': '473829bma',
@@ -1581,7 +1581,7 @@ function syncAlserData() {
     }
   }
   
-  var today = new Date();
+  var today = clientTimestamp ? new Date(clientTimestamp) : new Date();
   var dateStr = Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM-dd");
   
   var dataUrl = "https://api.alser.ua/calendar/?date=" + dateStr;
@@ -1649,6 +1649,10 @@ function syncAlserData() {
     var newDeliveriesToAdd = [];
     
     while ((match = regex.exec(html)) !== null) {
+       // Skip overdue events from previous days which are dumped into the current day view
+       if (match[0].indexOf('notFound') !== -1) {
+           continue;
+       }
        var taskType = match[1].trim();
        var responsibleID = match[2].trim();
        var dealId = match[3].trim();
