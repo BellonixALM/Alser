@@ -1653,6 +1653,21 @@ function syncAlserData(clientTimestamp) {
     var newDeliveriesToAdd = [];
     var debugMatchedEvents = 0;
     
+    // Extract JSON payload with all deal details (address, phone, name)
+    var dealDataMap = {};
+    var dataRegex = /var data = (\[[\s\S]*?\]);\n/;
+    var dataMatch = dataRegex.exec(html); // match on FULL html, not just targetHtml
+    if (dataMatch) {
+      try {
+        var parsedData = JSON.parse(dataMatch[1]);
+        parsedData.forEach(function(d) {
+           dealDataMap[d.deal_id.toString()] = d;
+        });
+      } catch (e) {
+        // ignore parse errors
+      }
+    }
+    
     for (var scopeIdx = 1; scopeIdx < scopes.length; scopeIdx++) {
         var scopeHtml = scopes[scopeIdx];
         var groupMatch = scopeHtml.match(/^([^<]*)<\/div>/);
@@ -1694,17 +1709,40 @@ function syncAlserData(clientTimestamp) {
        }
        
 
+       var address = "Адреса уточнюється";
+       var clientInfo = "Клієнт #" + dealId + " (" + productStr + ")";
+       var phone = "";
+       
+       var dData = dealDataMap[dealId];
+       if (dData && dData.deal_fields) {
+           var f = dData.deal_fields;
+           if (f.cb0291b203659bc10cec6b7bd81ac089c46255f4_formatted_address) {
+               address = f.cb0291b203659bc10cec6b7bd81ac089c46255f4_formatted_address;
+           } else if (f.cb0291b203659bc10cec6b7bd81ac089c46255f4) {
+               address = f.cb0291b203659bc10cec6b7bd81ac089c46255f4;
+           }
+           
+           var personName = f.person_name || f.contact_name || "";
+           if (f.person_id && f.person_id.phone && f.person_id.phone.length > 0) {
+               phone = f.person_id.phone[0].value;
+           }
+           if (personName || phone) {
+               clientInfo = personName + " [" + productStr + "]";
+           }
+       }
+
        var newRow = {
          'ID': dealId,
          'Час': timeStr,
          'Автомобіль': mappedDriver['ID_Авто'],
          'Водій': mappedDriver['Ім\'я'],
-         'Клієнт': "Клієнт #" + dealId + " (" + productStr + ")",
-         'Адреса': "Адреса уточнюється",
-         'Телефон': "",
+         'Клієнт': clientInfo,
+         'Адреса': address,
+         'Телефон': phone,
          'Статус': "Новий",
          'Дата': dateStr,
-         'Коментар': "Синхронізовано з Alser"
+         'Коментар': "Синхронізовано з Alser",
+         'Група': allowedGroup || groupName
        };
 
        if (existingDealIds[dealId]) {
