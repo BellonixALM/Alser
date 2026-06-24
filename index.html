@@ -15,7 +15,7 @@
 
     function toggleTheme() {
       const isLight = document.body.classList.toggle('light-theme');
-      localStorage.setItem('propex_theme', isLight ? 'light' : 'dark');
+      localStorage.setItem('alser_theme', isLight ? 'light' : 'dark');
       updateThemeIcon(isLight);
     }
     
@@ -29,7 +29,7 @@
     
     // Auto-detect theme
     function initTheme() {
-      const savedTheme = localStorage.getItem('propex_theme');
+      const savedTheme = localStorage.getItem('alser_theme');
       let isLight = false;
       
       // Auto-update when system theme changes
@@ -38,11 +38,11 @@
           if (e.matches) {
             document.body.classList.add('light-theme');
             updateThemeIcon(true);
-            localStorage.setItem('propex_theme', 'light');
+            localStorage.setItem('alser_theme', 'light');
           } else {
             document.body.classList.remove('light-theme');
             updateThemeIcon(false);
-            localStorage.setItem('propex_theme', 'dark');
+            localStorage.setItem('alser_theme', 'dark');
           }
         });
       }
@@ -572,8 +572,8 @@ async function openGlobalMap() {
 .sidebar-toggle-btn:hover { color: white !important; background: var(--border-color) !important; }
 
 :root {
-  --propex-red: #B91C1C;
-  --propex-blue: #1E3A8A;
+  --alser-red: #B91C1C;
+  --alser-blue: #1E3A8A;
 }
 
 body.light-theme {
@@ -589,23 +589,23 @@ body.light-theme {
 
 body.light-theme .sidebar-nav .nav-item { color: #4B5563; }
 body.light-theme .sidebar-nav .nav-item:hover { background-color: #F3F4F6; color: #111827; }
-body.light-theme .sidebar-nav .nav-item.active { background-color: rgba(185, 28, 28, 0.1); color: var(--propex-red); border-right: 3px solid var(--propex-red); }
+body.light-theme .sidebar-nav .nav-item.active { background-color: rgba(185, 28, 28, 0.1); color: var(--alser-red); border-right: 3px solid var(--alser-red); }
 
-body.light-theme .btn { background-color: var(--propex-red); color: white; }
+body.light-theme .btn { background-color: var(--alser-red); color: white; }
 body.light-theme .btn:hover { background-color: #991B1B; }
 
-body.light-theme .dash-card { background: #ffffff; color: var(--propex-blue); border-color: #E5E7EB; }
-body.light-theme .dash-title { color: var(--propex-blue); }
-body.light-theme .dash-value { color: var(--propex-red); }
+body.light-theme .dash-card { background: #ffffff; color: var(--alser-blue); border-color: #E5E7EB; }
+body.light-theme .dash-title { color: var(--alser-blue); }
+body.light-theme .dash-value { color: var(--alser-red); }
 body.light-theme .dash-card .text-muted { color: var(--text-muted); }
-body.light-theme .dash-card h3 { color: var(--propex-blue) !important; }
-body.light-theme .dash-panel { background: #ffffff !important; border-color: #E5E7EB !important; color: var(--propex-blue) !important; }
-body.light-theme .dash-panel .panel-title { color: var(--propex-red) !important; }
-body.light-theme .dash-panel h4 { color: var(--propex-blue) !important; }
-body.light-theme .recent-id { color: var(--propex-blue); }
+body.light-theme .dash-card h3 { color: var(--alser-blue) !important; }
+body.light-theme .dash-panel { background: #ffffff !important; border-color: #E5E7EB !important; color: var(--alser-blue) !important; }
+body.light-theme .dash-panel .panel-title { color: var(--alser-red) !important; }
+body.light-theme .dash-panel h4 { color: var(--alser-blue) !important; }
+body.light-theme .recent-id { color: var(--alser-blue); }
 body.light-theme .recent-manager { color: var(--text-muted); }
-body.light-theme .top-name { color: var(--propex-blue); }
-body.light-theme .top-score { color: var(--propex-red); }
+body.light-theme .top-name { color: var(--alser-blue); }
+body.light-theme .top-score { color: var(--alser-red); }
 
 
 
@@ -615,7 +615,7 @@ body.light-theme .top-score { color: var(--propex-red); }
 
 
 
-body.light-theme .list-group-title { color: var(--propex-blue); border-left-color: var(--propex-blue); }
+body.light-theme .list-group-title { color: var(--alser-blue); border-left-color: var(--alser-blue); }
 body.light-theme .card-time { color: #111827; }
 body.light-theme .delivery-card { background: #FFFFFF; color: #111827; border: 1px solid #E5E7EB; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 body.light-theme .delivery-card.problem { background: rgba(185, 28, 28, 0.05); }
@@ -634,11 +634,11 @@ body.light-theme .header-top { color: #111827; }
 
 /* Override inline styles for buttons in light mode */
 body.light-theme button[onclick="openAdvancedFilters()"] {
-    background-color: var(--propex-blue) !important;
+    background-color: var(--alser-blue) !important;
 }
 body.light-theme button#add-delivery-btn,
 body.light-theme button[onclick="openNewDeliveryModal()"] {
-    background-color: var(--propex-red) !important;
+    background-color: var(--alser-red) !important;
 }
 
 
@@ -1512,7 +1512,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       };
       ScriptRunBridge.prototype._callAPI = function(action, data) {
         const self = this;
-        const callbackName = 'propex_cb_' + Math.round(1000000000 * Math.random());
+        const callbackName = 'alser_cb_' + Math.round(1000000000 * Math.random());
         
         // Capture handlers in closure and reset them immediately
         const successCb = this._successHandler;
@@ -1618,8 +1618,8 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
         this._callAPI('deleteEmployee', { id: employeeId });
         return this;
       };
-      window.propexApi = new ScriptRunBridge();
-      console.log("💎 Custom propexApi Bridge successfully initialized!");
+      window.alserApi = new ScriptRunBridge();
+      console.log("💎 Custom alserApi Bridge successfully initialized!");
     
     window.onerror = function(message, source, lineno, colno, error) {
       const msg = "JS Error: " + message + " (Line " + lineno + ")";
@@ -1777,7 +1777,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
     function loadDeliveriesSafely() {
       const label = document.getElementById('date-label');
       label.textContent = "⏱️ Завантаження замірів...";
-      propexApi
+      alserApi
         .withFailureHandler(function(err) {
           dataLoadedSuccessfully = true;
           console.error("Failed to load deliveries from Sheets:", err);
@@ -1806,9 +1806,9 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       const sidebar = document.getElementById('main-sidebar');
       sidebar.classList.toggle('collapsed');
       if (sidebar.classList.contains('collapsed')) {
-        localStorage.setItem('propex_sidebar_collapsed', 'true');
+        localStorage.setItem('alser_sidebar_collapsed', 'true');
       } else {
-        localStorage.removeItem('propex_sidebar_collapsed');
+        localStorage.removeItem('alser_sidebar_collapsed');
       }
     }
     
@@ -1832,7 +1832,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       const label = document.getElementById('date-label');
       
         label.textContent = "⏱️ Завантаження водіїв...";
-        propexApi
+        alserApi
           .withSuccessHandler(function(response) {
             state.dailyCrews = (response && response.status === 'success') ? response.data : (response || []);
           })
@@ -1841,7 +1841,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
             state.dailyCrews = [];
           })
           .getDailyCrews();
-        propexApi
+        alserApi
           .withFailureHandler(function(err) {
             dataLoadedSuccessfully = true;
             console.error("Failed to load drivers from Sheets:", err);
@@ -1944,8 +1944,8 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
         submitBtn.disabled = true;
         submitBtn.textContent = "Перевірка...";
         errorMsg.style.display = 'none';
-        if (typeof propexApi !== 'undefined') {
-          propexApi
+        if (typeof alserApi !== 'undefined') {
+          alserApi
             .withSuccessHandler(function(response) {
               try {
                 submitBtn.disabled = false;
@@ -1993,7 +1993,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
     }
     function loginUser(user) {
       state.currentUser = user;
-      try { sessionStorage.setItem('propex_user', JSON.stringify(user)); } catch(e) { console.warn('Storage blocked'); }
+      try { sessionStorage.setItem('alser_user', JSON.stringify(user)); } catch(e) { console.warn('Storage blocked'); }
       document.getElementById('user-profile-name').textContent = user.name;
       document.getElementById('user-profile-role').textContent = user.role.toUpperCase();
       document.getElementById('user-avatar-char').textContent = user.name.charAt(0).toUpperCase();
@@ -2007,7 +2007,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
     }
     function handleLogout() {
       state.currentUser = null;
-      try { sessionStorage.removeItem('propex_user'); } catch(e) {}
+      try { sessionStorage.removeItem('alser_user'); } catch(e) {}
       document.getElementById('login-container').style.display = 'flex';
       document.getElementById('app-wrapper').style.display = 'none';
       document.getElementById('user-profile-widget').style.display = 'none';
@@ -2015,7 +2015,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
     }
     function checkSession() {
       var savedUser = null;
-      try { savedUser = sessionStorage.getItem('propex_user'); } catch(e) {}
+      try { savedUser = sessionStorage.getItem('alser_user'); } catch(e) {}
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
@@ -2372,7 +2372,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
                   state.drivers.push({ 'ID_Авто': carId, "Ім'я": name, 'Фото': base64Photo });
                 }
                 renderCalendar();
-                propexApi.updateDriverPhoto(carId, base64Photo);
+                alserApi.updateDriverPhoto(carId, base64Photo);
               };
               reader.readAsDataURL(file);
             };
@@ -2905,8 +2905,8 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       document.getElementById('cancel-delivery-btn').disabled = true;
       document.getElementById('cancel-delivery-btn').textContent = "Анулювання...";
       
-      if (typeof propexApi !== 'undefined') {
-        propexApi
+      if (typeof alserApi !== 'undefined') {
+        alserApi
           .withSuccessHandler(function(response) {
             document.getElementById('cancel-delivery-btn').disabled = false;
             document.getElementById('cancel-delivery-btn').textContent = "🚫 Анулювати";
@@ -2940,7 +2940,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       document.getElementById('update-status-btn').disabled = true;
       document.getElementById('update-status-btn').textContent = "Оновлення...";
       
-        propexApi
+        alserApi
           .withSuccessHandler(function(response) {
             document.getElementById('update-status-btn').disabled = false;
             document.getElementById('update-status-btn').textContent = "Оновити";
@@ -3023,7 +3023,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       document.getElementById('save-btn').textContent = "Збереження...";
       
       if (isEditMode && editDeliveryId) {
-        propexApi.withSuccessHandler(function(response) {
+        alserApi.withSuccessHandler(function(response) {
           document.getElementById('save-btn').disabled = false;
           document.getElementById('save-btn').textContent = "Зберегти замір";
           closeModal('delivery-modal');
@@ -3034,7 +3034,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
           alert("Помилка оновлення: " + (err.message || err));
         }).updateDeliveryDetails(editDeliveryId, deliveryData, userRole);
       } else {
-        propexApi.withSuccessHandler(function(response) {
+        alserApi.withSuccessHandler(function(response) {
           document.getElementById('save-btn').disabled = false;
           document.getElementById('save-btn').textContent = "Зберегти замір";
           closeModal('delivery-modal');
@@ -3198,7 +3198,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
         'Тривалість': del['Тривалість'] || 1
       };
       
-        propexApi
+        alserApi
           .withSuccessHandler(function(res) { console.log('Delivery moved successfully', res); })
           .withFailureHandler(function(err) {
             alert("Помилка перетягування: " + (err.message || err));
@@ -3484,7 +3484,7 @@ function renderClients() {
       try {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-      if (localStorage.getItem('propex_sidebar_collapsed') === 'true') {
+      if (localStorage.getItem('alser_sidebar_collapsed') === 'true') {
         document.getElementById('main-sidebar').classList.add('collapsed');
       }
       injectTopbarToggle();
@@ -3521,7 +3521,7 @@ function renderClients() {
       btn.innerHTML = '<i data-lucide="loader" class="spin" style="width: 16px; height: 16px;"></i> Завантаження...';
       btn.disabled = true;
       
-      propexApi('sync_alser_data', {})
+      alserApi('sync_alser_data', {})
         .then(function(res) {
           btn.innerHTML = originalText;
           btn.disabled = false;
@@ -3790,10 +3790,10 @@ function renderDashboard() {
         </div>
         <div class="top-item" style="border: none;">
             <div class="top-user">
-                <div class="top-avatar" style="background: var(--propex-red); color: white;">СА</div>
+                <div class="top-avatar" style="background: var(--alser-red); color: white;">СА</div>
                 <div class="top-name" style="color: inherit;">Самовивіз</div>
             </div>
-            <div class="top-score" style="color: var(--propex-red);">${pickupCount} замовлень</div>
+            <div class="top-score" style="color: var(--alser-red);">${pickupCount} замовлень</div>
         </div>
     `;
     
@@ -4194,7 +4194,7 @@ function saveClient() {
     return;
   }
   
-  propexApi.withSuccessHandler(res => {
+  alserApi.withSuccessHandler(res => {
     btn.textContent = originalText;
     btn.disabled = false;
     if (res.status === 'success') {
@@ -4213,7 +4213,7 @@ function saveClient() {
 function deleteClient(id) {
   if (!confirm("Ви впевнені, що хочете видалити цього клієнта?")) return;
   
-  propexApi.withSuccessHandler(res => {
+  alserApi.withSuccessHandler(res => {
     if (res.status === 'success') {
       loadData();
     } else {
@@ -4261,7 +4261,7 @@ function saveEmployee() {
     return;
   }
   
-  propexApi.withSuccessHandler(res => {
+  alserApi.withSuccessHandler(res => {
     btn.textContent = originalText;
     btn.disabled = false;
     if (res.status === 'success') {
@@ -4279,7 +4279,7 @@ function saveEmployee() {
 
 function deleteEmployee(id) {
   if (!confirm("Ви впевнені, що хочете видалити цього співробітника?")) return;
-  propexApi.withSuccessHandler(res => {
+  alserApi.withSuccessHandler(res => {
     if (res.status === 'success') {
       loadData();
     } else {
