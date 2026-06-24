@@ -1614,6 +1614,10 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
         this._callAPI('saveEmployee', employeeData);
         return this;
       };
+      ScriptRunBridge.prototype.syncAlserData = function() {
+        this._callAPI('sync_alser_data', {});
+        return this;
+      };
       ScriptRunBridge.prototype.deleteEmployee = function(employeeId) {
         this._callAPI('deleteEmployee', { id: employeeId });
         return this;
