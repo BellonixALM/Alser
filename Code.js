@@ -233,15 +233,19 @@ function getDeliveries() {
       } else if (h.replace(/\s+/g, '_') === 'статус_збору' || h.replace(/\s+/g, '_') === 'статус_склад' || h.replace(/\s+/g, '') === 'статусзбору') {
         obj['Статус_збору'] = val;
         obj[header] = val;
-      } else if (h === 'ім\'я_одержувача' || h === 'одержувач' || h === 'отримувач' || h === 'ім’я одержувача') {
-        obj['Ім\'я_одержувача'] = val;
-      } else if (h === 'телефон_одержувача' || h === 'телефон' || h === 'номер отримувача') {
-        obj['Telephone'] = val; // Store original
+      } else if (h === "ім'я_одержувача" || h === 'одержувач' || h === 'отримувач' || h === "ім'я одержувача" || h === 'клієнт' || h === 'замовник' || h === 'піб клієнта' || h === 'ім\'я') {
+        obj["Ім'я_одержувача"] = val;
+        obj['Клієнт'] = val; // дублюємо у стандартне поле
+      } else if (h === 'телефон_одержувача' || h === 'телефон' || h === 'номер отримувача' || h === 'номер телефону' || h === 'phone') {
+        obj['Telephone'] = val; // зберігаємо оригінал
         obj['Телефон_одержувача'] = val;
+        obj['Телефон'] = val; // дублюємо у стандартне поле
       } else if (h === 'тривалість' || h === 'duration') {
         obj['Тривалість'] = val;
       } else if (h === 'тип_виробу' || h === 'тип виробу' || h === 'product_type') {
         obj['Тип_виробу'] = val;
+      } else if (h === 'кількість_стулок' || h === 'кількість стулок' || h === 'quantity' || h === 'количество створок' || h === 'стулок' || h === 'к-ть стулок') {
+        obj['Кількість_стулок'] = val;
       } else if (h === 'id_менеджера' || h === 'менеджер' || h === 'manager_chat_id' || h === 'manager_id') {
         obj['ID_Менеджера'] = val;
       } else {
@@ -260,6 +264,10 @@ function getDeliveries() {
     if (!obj['Статус']) {
       obj['Статус'] = 'Заплановано';
     }
+    // Синхронізуємо Клієнт і Телефон якщо одне є а інше відсутнє
+    if (!obj['Клієнт'] && obj["Ім'я_одержувача"]) obj['Клієнт'] = obj["Ім'я_одержувача"];
+    if (!obj['Телефон'] && obj['Телефон_одержувача']) obj['Телефон'] = obj['Телефон_одержувача'];
+    if (!obj['Телефон'] && obj['Telephone']) obj['Телефон'] = obj['Telephone'];
     
     return obj;
   });
@@ -399,7 +407,7 @@ function addDelivery(deliveryData) {
   
   var headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
   if (headers.length === 1 && headers[0] === "") {
-    sheet.appendRow(['ID', 'ID_Авто', 'Дата', 'Час', 'Адреса', 'Номер_замовлення', 'Статус_оплати', 'Статус', 'Коментар', 'Ім\'я_одержувача', 'Телефон_одержувача', 'ID_Менеджера', 'ID_Комірника', 'Статус_збору', 'Тривалість', 'Тип_виробу']);
+    sheet.appendRow(['ID', 'ID_Авто', 'Дата', 'Час', 'Адреса', 'Номер_замовлення', 'Статус_оплати', 'Статус', 'Коментар', 'Ім\'я_одержувача', 'Телефон_одержувача', 'ID_Менеджера', 'ID_Комірника', 'Статус_збору', 'Тривалість', 'Тип_виробу', 'Кількість_стулок']);
     headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   } else {
     // Add missing columns if they don't exist
@@ -407,6 +415,7 @@ function addDelivery(deliveryData) {
     var hasGatherStatus = headers.indexOf('Статус_збору') !== -1;
     var hasDur = headers.indexOf('Тривалість') !== -1;
     var hasProd = headers.indexOf('Тип_виробу') !== -1;
+    var hasQty = headers.indexOf('Кількість_стулок') !== -1;
     
     if (!hasWorker) {
       sheet.getRange(1, headers.length + 1).setValue('ID_Комірника');
@@ -423,6 +432,10 @@ function addDelivery(deliveryData) {
     if (!hasProd) {
       sheet.getRange(1, headers.length + 1).setValue('Тип_виробу');
       headers.push('Тип_виробу');
+    }
+    if (!hasQty) {
+      sheet.getRange(1, headers.length + 1).setValue('Кількість_стулок');
+      headers.push('Кількість_стулок');
     }
   }
   
@@ -447,6 +460,7 @@ function addDelivery(deliveryData) {
   setVal('ID_Менеджера', deliveryData.manager_chat_id || '');
   setVal('Тривалість', deliveryData['Тривалість'] || 1);
   setVal('Тип_виробу', deliveryData['product_type'] || '');
+  setVal('Кількість_стулок', deliveryData['quantity'] || '');
   setVal('ID_Комірника', '');
   var statusColFound = false;
   for (var k = 0; k < headers.length; k++) {
@@ -591,10 +605,16 @@ function updateDeliveryStatus(deliveryId, newStatus, comment) {
         date: dateCol !== -1 ? data[i][dateCol] : '',
         time: timeCol !== -1 ? data[i][timeCol] : '',
         address: address,
+        // Compatibility aliases for modal
+        Адреса: address,
         order_num: orderNum,
         payment: payCol !== -1 ? data[i][payCol] : '',
         receiver_name: nameCol !== -1 ? data[i][nameCol] : '',
+        // Additional aliases
+        'Ім\'я_одержувача': nameCol !== -1 ? data[i][nameCol] : '',
+        'Клієнт': nameCol !== -1 ? data[i][nameCol] : '',
         receiver_phone: phoneCol !== -1 ? data[i][phoneCol] : '',
+        Телефон: phoneCol !== -1 ? data[i][phoneCol] : '',
         manager_chat_id: managerId
       };
       
@@ -1729,6 +1749,38 @@ function syncAlserData(clientTimestamp) {
            if (personName || phone) {
                clientInfo = personName + " [" + productStr + "]";
            }
+           
+           // Зчитуємо кількість стулок з різних можливих полів Alser
+           var qty = '';
+           // Спробуємо поширені назви поля кількості стулок в Alser/Pipedrive
+           var qtyFields = [
+             'quantity', 'qty', 'count', 'quantity_of_sashes',
+             'count_of_sashes', 'leaves_count', 'number_of_sashes',
+             'kolichestvo_storok', 'kilkist_stulok',
+             'count_leaves', 'leaves'
+           ];
+           for (var qi = 0; qi < qtyFields.length; qi++) {
+             if (f[qtyFields[qi]] !== undefined && f[qtyFields[qi]] !== null && f[qtyFields[qi]] !== '') {
+               qty = String(f[qtyFields[qi]]);
+               break;
+             }
+           }
+           // Також шукаємо по всіх ключах, які містять 'quant', 'count', 'leaf', 'creat', 'stulk', 'storok'
+           if (!qty) {
+             var fKeys = Object.keys(f);
+             for (var fi = 0; fi < fKeys.length; fi++) {
+               var fk = fKeys[fi].toLowerCase();
+               if (fk.indexOf('quant') !== -1 || fk.indexOf('leaf') !== -1 || 
+                   fk.indexOf('count') !== -1 || fk.indexOf('storok') !== -1 ||
+                   fk.indexOf('stulok') !== -1 || fk.indexOf('сторок') !== -1) {
+                 qty = String(f[fKeys[fi]]);
+                 Logger.log('Знайдено поле кількості стулок: ' + fKeys[fi] + ' = ' + qty);
+                 break;
+               }
+             }
+           }
+           // Логуємо всі ключі deal_fields для діагностики
+           Logger.log('deal_fields keys for deal ' + dealId + ': ' + JSON.stringify(Object.keys(f)));
        }
 
        var newRow = {
@@ -1742,7 +1794,8 @@ function syncAlserData(clientTimestamp) {
          'Статус': "Новий",
          'Дата': dateStr,
          'Коментар': "Синхронізовано з Alser",
-         'Група': allowedGroup || groupName
+         'Група': allowedGroup || groupName,
+         'Кількість_стулок': qty || ''
        };
 
        if (existingDealIds[dealId]) {
@@ -1770,6 +1823,7 @@ function syncAlserData(clientTimestamp) {
                     if (h === 'статус') return newRow['Статус'];
                     if (h === 'дата' || h === 'дата доставки') return newRow['Дата'];
                     if (h === 'коментар' || h === 'примітки') return newRow['Коментар'];
+                    if (h === 'кількість_стулок' || h === 'кількість стулок' || h === 'quantity' || h === 'стулок') return newRow['Кількість_стулок'] || '';
                     return '';
                 });
                 sheet.getRange(rowIndex, 1, 1, headers.length).setValues([rowToUpdate]);
@@ -1810,6 +1864,7 @@ function syncAlserData(clientTimestamp) {
             if (h === 'статус') return d['Статус'];
             if (h === 'дата' || h === 'дата доставки') return d['Дата'];
             if (h === 'коментар' || h === 'примітки') return d['Коментар'];
+            if (h === 'кількість_стулок' || h === 'кількість стулок' || h === 'quantity' || h === 'стулок') return d['Кількість_стулок'] || '';
             return '';
           });
         });
