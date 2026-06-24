@@ -1643,12 +1643,18 @@ function syncAlserData(clientTimestamp) {
       if (d['ID']) existingDealIds[d['ID'].toString()] = true;
     });
     
-    // 5. Parse events from HTML
-    var regex = /<div[^>]*taskType="([^"]*)"[^>]*responsibleID="([^"]*)"[^>]*deal_id="([^"]*)"[^>]*task_id="([^"]*)"[^>]*>([^<]*)<br>([^<]*)<br>([^<]*)<\/div>/g;
-    var match;
+    var scopes = html.split('<div class="scopeName">');
     var newDeliveriesToAdd = [];
+    var debugMatchedEvents = 0;
     
-    while ((match = regex.exec(html)) !== null) {
+    for (var scopeIdx = 1; scopeIdx < scopes.length; scopeIdx++) {
+        var scopeHtml = scopes[scopeIdx];
+        var groupMatch = scopeHtml.match(/^([^<]*)<\/div>/);
+        var groupName = groupMatch ? groupMatch[1].trim() : "";
+        
+        var regex = /<div[^>]*taskType="([^"]*)"[^>]*responsibleID="([^"]*)"[^>]*deal_id="([^"]*)"[^>]*task_id="([^"]*)"[^>]*>([^<]*)<br>([^<]*)<br>([^<]*)<\/div>/g;
+        var match;
+        while ((match = regex.exec(scopeHtml)) !== null) {
        var taskType = match[1].trim();
        var responsibleID = match[2].trim();
        var dealId = match[3].trim();
@@ -1656,9 +1662,30 @@ function syncAlserData(clientTimestamp) {
        var timeStr = match[5].trim();
        var productStr = match[6].trim();
        
-       // Only process if this event belongs to a driver we mapped
-       var mappedDriver = alserIdToOurDriver[responsibleID];
+       var responsibleID = match[2].trim();
+       
+       // Handle multiple IDs if space-separated
+       var numericResponsibleId = parseInt(responsibleID);
+       if (isNaN(numericResponsibleId)) continue;
+       
+       var mappedDriver = alserIdToOurDriver[numericResponsibleId.toString()];
        if (!mappedDriver) continue;
+       
+       var dName = mappedDriver['Ім\'я'];
+       var allowedGroup = null;
+       if (dName === 'Денис Юрасов' || dName === 'Свистун Олена' || dName === 'Коломієць Руслан') {
+           allowedGroup = 'Жалюзі';
+       } else if (dName === 'Захаров Олег' || dName === 'Коржов Вячеслав' || dName === 'Мартинюк Валерій') {
+           allowedGroup = 'Жалюзи Одесса';
+       } else if (dName === 'Сергій Ревука') {
+           allowedGroup = 'Жалюзи Хмел.';
+       } else if (dName === 'Радіоненко Олена') {
+           allowedGroup = 'Жалюзи Львів';
+       }
+       
+       if (allowedGroup && groupName !== allowedGroup) {
+           continue;
+       }
        
 
        var newRow = {
@@ -1709,7 +1736,7 @@ function syncAlserData(clientTimestamp) {
          existingDealIds[dealId] = true;
          newDeliveriesToAdd.push(newRow);
        }
-
+     }
     }
     
     // 6. Save new deliveries
