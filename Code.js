@@ -1643,7 +1643,13 @@ function syncAlserData(clientTimestamp) {
       if (d['ID']) existingDealIds[d['ID'].toString()] = true;
     });
     
-    var scopes = html.split('<div class="scopeName">');
+    var parts = dateStr.split('-');
+    var targetDayStr = parts[2] + '.' + parts[1]; // e.g. "24.06"
+    var dayBlockRegex = new RegExp('<div class="currentDay"[^>]*>' + targetDayStr + '[^<]*<\\/div>([\\s\\S]*?)(?=<div class="currentDay"|$)', 'i');
+    var dayMatch = dayBlockRegex.exec(html);
+    var targetHtml = dayMatch ? dayMatch[1] : "";
+    
+    var scopes = targetHtml.split('<div class="scopeName">');
     var newDeliveriesToAdd = [];
     var debugMatchedEvents = 0;
     
