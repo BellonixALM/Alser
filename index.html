@@ -3531,8 +3531,8 @@ function renderClients() {
           btn.disabled = false;
           lucide.createIcons();
           if(res && res.success) {
-             alert('Синхронізація успішна!\nЗнайдено записів на Alser: ' + res.added);
-             // loadData(); // reload calendar
+             alert('Синхронізація успішна!\nДодано нових записів: ' + res.added);
+             loadData(); // reload calendar
           } else {
              alert('Помилка: ' + (res ? res.error : 'Невідома помилка'));
           }
