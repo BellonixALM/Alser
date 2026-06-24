@@ -3516,35 +3516,29 @@ function renderClients() {
 
 
     function triggerAlserSync() {
-      if (typeof google === 'undefined' || !google.script) {
-         alert('Синхронізація з Alser працює тільки на "живому" сайті Google Apps Script (за посиланням script.google.com), оскільки вона потребує серверних функцій для доступу до вашої таблиці. Будь ласка, відкрийте додаток через посилання Google.');
-         return;
-      }
-
       const btn = document.getElementById('sync-alser-btn');
       const originalText = btn.innerHTML;
       btn.innerHTML = '<i data-lucide="loader" class="spin" style="width: 16px; height: 16px;"></i> Завантаження...';
       btn.disabled = true;
       
-      google.script.run
-        .withSuccessHandler(function(res) {
+      propexApi('sync_alser_data', {})
+        .then(function(res) {
           btn.innerHTML = originalText;
           btn.disabled = false;
           lucide.createIcons();
           if(res && res.success) {
-             alert('Синхронізація успішна!\\nНових записів: ' + res.added + '\\nОновлено: ' + res.updated);
-             loadData(); // reload calendar
+             alert('Синхронізація успішна!\\nЗнайдено записів на Alser: ' + res.added);
+             // loadData(); // reload calendar
           } else {
              alert('Помилка: ' + (res ? res.error : 'Невідома помилка'));
           }
         })
-        .withFailureHandler(function(err) {
+        .catch(function(err) {
           btn.innerHTML = originalText;
           btn.disabled = false;
           lucide.createIcons();
-          alert('Помилка сервера: ' + err.message);
-        })
-        .syncAlserData();
+          alert('Помилка сервера: ' + err);
+        });
     }
 
     function initApp() {
