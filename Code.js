@@ -92,6 +92,8 @@ function doGet(e) {
         result = saveEmployee(payload);
       } else if (action === 'deleteEmployee') {
         result = deleteEmployee(payload.id);
+      } else if (action === 'sync_alser_data') {
+        result = syncAlserData();
       } else {
         result = { status: 'error', message: 'Unknown action: ' + action };
       }
@@ -153,6 +155,9 @@ function doPost(e) {
     } else if (action === 'update_warehouse_status') {
       var result = updateWarehouseStatus(data.data.deliveryId, data.data.status);
       return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'sync_alser_data') {
+      return ContentService.createTextOutput(JSON.stringify(syncAlserData()))
         .setMimeType(ContentService.MimeType.JSON);
     } else if (action === 'update_driver_photo') {
       var result = updateDriverPhoto(data.data.carId, data.data.photoBase64);
@@ -1527,4 +1532,186 @@ function initSetup() {
     crews = ss.insertSheet('Екіпажі');
     crews.appendRow(["Дата", "Авто_1", "Авто_2", "Авто_3", "Авто_4", "Авто_5", "Авто_6", "Авто_7", "Авто_8", "Авто_9"]);
   }
+}
+
+
+function syncAlserData() {
+  var loginUrl = "https://api.alser.ua/calendar/login.php";
+  var payload = {
+    'login': '473829bma',
+    'password': '2GQNDmUp910N'
+  };
+  
+  var options = {
+    'method': 'post',
+    'payload': payload,
+    'headers': {
+      'X-Requested-With': 'XMLHttpRequest',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    },
+    'muteHttpExceptions': true
+  };
+  
+  var response = UrlFetchApp.fetch(loginUrl, options);
+  var cookies = response.getAllHeaders()['Set-Cookie'];
+  var cookieString = "";
+  if (cookies) {
+    if (Array.isArray(cookies)) {
+      cookieString = cookies.map(function(c) { return c.split(';')[0]; }).join('; ');
+    } else {
+      cookieString = cookies.split(';')[0];
+    }
+  }
+  
+  var today = new Date();
+  var dateStr = Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  
+  var dataUrl = "https://api.alser.ua/calendar/?date=" + dateStr;
+  var dataOptions = {
+    'method': 'get',
+    'headers': {
+      'Cookie': cookieString,
+      'X-Requested-With': 'XMLHttpRequest',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    },
+    'muteHttpExceptions': true
+  };
+  
+  var dataResponse = UrlFetchApp.fetch(dataUrl, dataOptions);
+  var html = dataResponse.getContentText();
+  
+  var added = 0;
+  var updated = 0;
+  
+  try {
+    // 1. Build dictionary of Alser users: userId -> fullname
+    var userRegex = /<div[^>]*data-userId="([^"]*)"[^>]*data-fullname="([^"]*)"/g;
+    var alserUsers = {};
+    var userMatch;
+    while ((userMatch = userRegex.exec(html)) !== null) {
+      alserUsers[userMatch[1].trim()] = userMatch[2].trim();
+    }
+    
+    // 2. Fetch our system drivers
+    var ourDrivers = getDrivers();
+    
+    // Helper to normalize name: "Денис Юрасов" -> "дениссвистун" -> sorted "денисюрасов"
+    function normalizeName(name) {
+      return name.toLowerCase().replace(/[^а-яієїґa-z\s]/g, '').trim().split(/\s+/).sort().join('');
+    }
+    
+    // 3. Create mapping from Alser userId -> our Driver ID
+    var alserIdToOurDriver = {};
+    for (var aId in alserUsers) {
+      var aNameNorm = normalizeName(alserUsers[aId]);
+      if (aNameNorm.indexOf('белонін') !== -1) continue; // Ignore Belonin
+      
+      for (var i = 0; i < ourDrivers.length; i++) {
+        var dNameNorm = normalizeName(ourDrivers[i]['Ім\'я']);
+        if (dNameNorm.indexOf('белонін') !== -1) continue;
+        
+        // Exact normalized match (handles flipped first/last name)
+        if (aNameNorm === dNameNorm || aNameNorm.indexOf(dNameNorm) !== -1 || dNameNorm.indexOf(aNameNorm) !== -1) {
+          alserIdToOurDriver[aId] = ourDrivers[i];
+          break;
+        }
+      }
+    }
+    
+    // 4. Fetch existing deliveries to avoid duplicates
+    var existingDeliveries = getDeliveries();
+    var existingDealIds = {};
+    existingDeliveries.forEach(function(d) {
+      if (d['ID']) existingDealIds[d['ID'].toString()] = true;
+    });
+    
+    // 5. Parse events from HTML
+    var regex = /<div[^>]*taskType="([^"]*)"[^>]*responsibleID="([^"]*)"[^>]*deal_id="([^"]*)"[^>]*task_id="([^"]*)"[^>]*>([^<]*)<br>([^<]*)<br>([^<]*)<\/div>/g;
+    var match;
+    var newDeliveriesToAdd = [];
+    
+    while ((match = regex.exec(html)) !== null) {
+       var taskType = match[1].trim();
+       var responsibleID = match[2].trim();
+       var dealId = match[3].trim();
+       var taskId = match[4].trim();
+       var timeStr = match[5].trim();
+       var productStr = match[6].trim();
+       
+       // Only process if this event belongs to a driver we mapped
+       var mappedDriver = alserIdToOurDriver[responsibleID];
+       if (!mappedDriver) continue;
+       
+       // Only process if we don't already have it
+       if (existingDealIds[dealId]) {
+         continue; // For now we skip updating, just insert new ones
+       }
+       
+       // Mark as added so we don't add duplicates from the same sync run
+       existingDealIds[dealId] = true;
+       
+       // Format data for our Google Sheet 'Заміри'
+       var newRow = {
+         'ID': dealId,
+         'Час': timeStr,
+         'Автомобіль': mappedDriver['ID_Авто'],
+         'Водій': mappedDriver['Ім\'я'],
+         'Клієнт': "Клієнт #" + dealId + " (" + productStr + ")",
+         'Адреса': "Адреса уточнюється",
+         'Телефон': "",
+         'Статус': "Новий",
+         'Дата': dateStr,
+         'Коментар': "Синхронізовано з Alser"
+       };
+       
+       newDeliveriesToAdd.push(newRow);
+    }
+    
+    // 6. Save new deliveries
+    if (newDeliveriesToAdd.length > 0) {
+      var ss = getSpreadsheet();
+      var sheet = ss.getSheetByName('Заміри');
+      if (sheet) {
+        var headers = sheet.getDataRange().getValues()[0];
+        var rowsToAdd = newDeliveriesToAdd.map(function(d) {
+          return headers.map(function(header) {
+            var h = header.toString().trim().toLowerCase();
+            if (h === 'id' || h === 'код') return d['ID'];
+            if (h === 'час') return d['Час'];
+            if (h === 'id_авто' || h === 'id_автомобіля' || h === 'автомобіль' || h === 'авто') return d['Автомобіль'];
+            if (h === 'водій' || h === 'id_водія' || h === 'водія' || h === 'ім\'я водія' || h === 'прізвище') return d['Водій'];
+            if (h === 'клієнт' || h === 'замовник' || h === 'піб клієнта') return d['Клієнт'];
+            if (h === 'адреса' || h === 'адреса доставки') return d['Адреса'];
+            if (h === 'телефон' || h === 'номер телефону') return d['Телефон'];
+            if (h === 'статус') return d['Статус'];
+            if (h === 'дата' || h === 'дата доставки') return d['Дата'];
+            if (h === 'коментар' || h === 'примітки') return d['Коментар'];
+            return '';
+          });
+        });
+        
+        sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, headers.length).setValues(rowsToAdd);
+        added = rowsToAdd.length;
+      }
+    }
+    
+  } catch (e) {
+    return { success: false, error: "Помилка: " + e.toString() };
+  }
+  
+  
+  return { 
+    success: true, 
+    added: added, 
+    updated: updated,
+    debug_alserUsers: Object.keys(alserUsers).length,
+    debug_ourDrivers: ourDrivers.length,
+    debug_mapped: Object.keys(alserIdToOurDriver).length,
+    debug_matchedEvents: newDeliveriesToAdd.length
+  };
+
+}
+
+function getDeliveriesCount() {
+  return ContentService.createTextOutput(JSON.stringify(getDeliveries()));
 }
