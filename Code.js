@@ -1649,10 +1649,6 @@ function syncAlserData(clientTimestamp) {
     var newDeliveriesToAdd = [];
     
     while ((match = regex.exec(html)) !== null) {
-       // Skip overdue events from previous days which are dumped into the current day view
-       if (match[0].indexOf('notFound') !== -1) {
-           continue;
-       }
        var taskType = match[1].trim();
        var responsibleID = match[2].trim();
        var dealId = match[3].trim();
