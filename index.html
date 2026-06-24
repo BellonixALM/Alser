@@ -3521,8 +3521,8 @@ function renderClients() {
       btn.innerHTML = '<i data-lucide="loader" class="spin" style="width: 16px; height: 16px;"></i> Завантаження...';
       btn.disabled = true;
       
-      alserApi('sync_alser_data', {})
-        .then(function(res) {
+      alserApi
+        .withSuccessHandler(function(res) {
           btn.innerHTML = originalText;
           btn.disabled = false;
           lucide.createIcons();
@@ -3533,12 +3533,13 @@ function renderClients() {
              alert('Помилка: ' + (res ? res.error : 'Невідома помилка'));
           }
         })
-        .catch(function(err) {
+        .withFailureHandler(function(err) {
           btn.innerHTML = originalText;
           btn.disabled = false;
           lucide.createIcons();
           alert('Помилка сервера: ' + err);
-        });
+        })
+        .syncAlserData();
     }
 
     function initApp() {
