@@ -1654,15 +1654,7 @@ function syncAlserData() {
        var mappedDriver = alserIdToOurDriver[responsibleID];
        if (!mappedDriver) continue;
        
-       // Only process if we don't already have it
-       if (existingDealIds[dealId]) {
-         continue; // For now we skip updating, just insert new ones
-       }
-       
-       // Mark as added so we don't add duplicates from the same sync run
-       existingDealIds[dealId] = true;
-       
-       // Format data for our Google Sheet 'Заміри'
+
        var newRow = {
          'ID': dealId,
          'Час': timeStr,
@@ -1675,8 +1667,43 @@ function syncAlserData() {
          'Дата': dateStr,
          'Коментар': "Синхронізовано з Alser"
        };
-       
-       newDeliveriesToAdd.push(newRow);
+
+       if (existingDealIds[dealId]) {
+         // Existing delivery, let's update it in the sheet instead of skipping
+         var idx = -1;
+         for (var j = 0; j < existingDeliveries.length; j++) {
+           if (existingDeliveries[j]['ID'] == dealId) { idx = j; break; }
+         }
+         if (idx !== -1) {
+            // Update the existing row (offset by 2 for header and 0-index)
+            var rowIndex = idx + 2; 
+            var ss = getSpreadsheet();
+            var sheet = ss.getSheetByName('Заміри');
+            if (sheet) {
+                var headers = sheet.getDataRange().getValues()[0];
+                var rowToUpdate = headers.map(function(header) {
+                    var h = header.toString().trim().toLowerCase();
+                    if (h === 'id' || h === 'код') return newRow['ID'];
+                    if (h === 'час') return newRow['Час'];
+                    if (h === 'id_авто' || h === 'id_автомобіля' || h === 'автомобіль' || h === 'авто') return newRow['Автомобіль'];
+                    if (h === 'водій' || h === 'id_водія' || h === 'водія' || h === 'ім\'я водія' || h === 'прізвище') return newRow['Водій'];
+                    if (h === 'клієнт' || h === 'замовник' || h === 'піб клієнта') return newRow['Клієнт'];
+                    if (h === 'адреса' || h === 'адреса доставки') return newRow['Адреса'];
+                    if (h === 'телефон' || h === 'номер телефону') return newRow['Телефон'];
+                    if (h === 'статус') return newRow['Статус'];
+                    if (h === 'дата' || h === 'дата доставки') return newRow['Дата'];
+                    if (h === 'коментар' || h === 'примітки') return newRow['Коментар'];
+                    return '';
+                });
+                sheet.getRange(rowIndex, 1, 1, headers.length).setValues([rowToUpdate]);
+                updated++;
+            }
+         }
+       } else {
+         existingDealIds[dealId] = true;
+         newDeliveriesToAdd.push(newRow);
+       }
+
     }
     
     // 6. Save new deliveries
@@ -1725,5 +1752,8 @@ function syncAlserData() {
 }
 
 function getDeliveriesCount() {
-  return ContentService.createTextOutput(JSON.stringify(getDeliveries()));
+  var ss = getSpreadsheet();
+  var sheets = ss.getSheets();
+  var names = sheets.map(function(s) { return s.getName(); });
+  return ContentService.createTextOutput(JSON.stringify(names));
 }

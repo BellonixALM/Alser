@@ -3531,7 +3531,7 @@ function renderClients() {
           btn.disabled = false;
           lucide.createIcons();
           if(res && res.success) {
-             alert('Синхронізація успішна!\nДодано нових записів: ' + res.added + '\nDebug:\nAlserUsers: ' + res.debug_alserUsers + '\nOurDrivers: ' + res.debug_ourDrivers + '\nMapped: ' + res.debug_mapped + '\nMatchedEvents: ' + res.debug_matchedEvents);
+             alert('Синхронізація успішна!\nДодано нових записів: ' + res.added + '\nОновлено існуючих: ' + res.updated + '\nDebug:\nAlserUsers: ' + res.debug_alserUsers + '\nOurDrivers: ' + res.debug_ourDrivers + '\nMapped: ' + res.debug_mapped + '\nMatchedEvents: ' + res.debug_matchedEvents);
              loadData(); // reload calendar
           } else {
              alert('Помилка: ' + (res ? res.error : 'Невідома помилка'));
