@@ -139,27 +139,24 @@ async function openGlobalMap() {
     });
   }
 
-  // Base Alser location (Вікентія Хвойки, 18/14, Київ)
-  const baseCoords = [50.4225791, 30.4404556];
-  
-  const loadingOverlay = document.getElementById('map-loading-overlay');
-  const loadingText = document.getElementById('map-loading-text');
-  loadingOverlay.style.display = 'flex';
-  
-  const todayStr = String(state.currentDate.getDate()).padStart(2, '0') + '.' + 
-                   String(state.currentDate.getMonth() + 1).padStart(2, '0') + '.' + 
-                   state.currentDate.getFullYear();
+  // Форматування дати в "dd.mm.yyyy"
+  function formatDate(val) {
+    const d = val instanceof Date ? val : new Date(val);
+    if (isNaN(d)) return '';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = d.getFullYear();
+    return `${dd}.${mm}.${yy}`;
+  }
 
+  // Сьогоднішня дата (локальна)
+  const todayStr = formatDate(state.currentDate);
+
+  // Фільтр замірів на сьогодні + лише Київ
   const todayDels = (state.deliveries || []).filter(d => {
-    let delDate = d['Дата'] ? String(d['Дата']).trim() : '';
-    // handle YYYY-MM-DD
-    if (delDate.includes('-')) {
-       const p = delDate.split('-');
-       delDate = `${p[2]}.${p[1]}.${p[0]}`;
-    }
-    if (delDate !== todayStr) return false;
-    
-    // Фільтр тільки для Києва (ігноруємо інші міста)
+    const delDateStr = formatDate(d['Дата']);
+    if (!delDateStr) return false;
+    if (delDateStr !== todayStr) return false;
     const grp = (d['Група'] || '').toLowerCase();
     if (grp.includes('одес') || grp.includes('львів') || grp.includes('хмел')) {
       return false;
