@@ -82,6 +82,7 @@ window.getCarName = function(carId) {
   return map[String(carId)] || `Замірник ${carId}`;
 };
 let fleetMap = null;
+const baseCoords = [50.4225791, 30.4404556]; // База Alser (Ушинського 40, Київ)
 const addressCache = {}; // Cache for geocoding
 
 function closeMapModal() {
@@ -1690,6 +1691,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
 
     function getDeliveryStatusClass(rawStatus) {
       const lowerStatus = (rawStatus || '').trim().toLowerCase();
+      // Українські специфічні маппінги
       if (lowerStatus.includes('зустріч в офісі')) return 'status-meeting';
       if (lowerStatus.includes('активний замір') || lowerStatus === 'замір') return 'status-active-measure';
       if (lowerStatus.includes('замір горизонтальних жалюзі') || lowerStatus.includes('замір гор')) return 'status-horiz-blinds';
@@ -1698,12 +1700,63 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       if (lowerStatus.includes('ремонт')) return 'status-repair';
       if (lowerStatus.includes('монтаж')) return 'status-install';
       if (lowerStatus.includes('переробка')) return 'status-remake';
+      // В процесі (українською)
       if (['в процесі', 'завантажено', 'в дорозі', 'на маршруті'].includes(lowerStatus)) return 'in-progress';
+      // Виконано (українською)
       if (['виконано', 'виконана'].includes(lowerStatus)) return 'completed';
+      // Англійські еквіваленти для сумісності з даними
+      if (['open', 'planned'].includes(lowerStatus)) return 'planned';
+      if (['in progress', 'in_process', 'inprogress', 'processing'].includes(lowerStatus)) return 'in-progress';
+      if (['completed', 'done', 'finished'].includes(lowerStatus)) return 'completed';
+      // Проблеми / скасування
       if (lowerStatus.includes('аварія') || lowerStatus.includes('проблема')) return 'problem';
       if (lowerStatus.includes('скасовано') || lowerStatus.includes('скасована')) return 'cancelled';
       return 'planned';
     }
+
+    // Розумне визначення статусу на основі дати заміру
+    // Якщо статус явно вказаний (не «Заплановано» за замовчуванням) — використовуємо його
+    // Інакше: минулі дати = виконано (зелений), сьогодні = в процесі (синій), майбутні = заплановано (сірий)
+    function getSmartStatusClass(del) {
+      const rawStatus = del['Статус'] || del['status'] || '';
+      const lowerStatus = rawStatus.trim().toLowerCase();
+      
+      // Якщо статус явно вказаний і не дефолтний — використовуємо маппінг
+      if (lowerStatus && lowerStatus !== 'заплановано' && lowerStatus !== 'planned' && lowerStatus !== 'open') {
+        return getDeliveryStatusClass(rawStatus);
+      }
+      
+      // Визначаємо статус на основі дати
+      const dateStr = del['Дата'] || '';
+      if (!dateStr) return getDeliveryStatusClass(rawStatus);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      let delDate;
+      // Підтримуємо формати дат: dd.mm.yyyy, yyyy-mm-dd
+      if (dateStr.includes('.')) {
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+          delDate = new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+      } else if (dateStr.includes('-')) {
+        delDate = new Date(dateStr);
+      }
+      
+      if (!delDate || isNaN(delDate.getTime())) return getDeliveryStatusClass(rawStatus);
+      
+      delDate.setHours(0, 0, 0, 0);
+      
+      if (delDate.getTime() < today.getTime()) {
+        return 'completed';  // Минулі дати — виконано (зелений)
+      } else if (delDate.getTime() === today.getTime()) {
+        return 'in-progress'; // Сьогодні — в процесі (синій)
+      } else {
+        return 'planned';     // Майбутні — заплановано (сірий)
+      }
+    }
+
     
     function parseDateStr(str) {
       if (!str) return null;
@@ -2758,7 +2811,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
         const maxVisible = 3;
         dayDeliveries.slice(0, maxVisible).forEach(del => {
           const miniCard = document.createElement('div');
-          let statusClass = getDeliveryStatusClass(del['Статус']);
+          let statusClass = getSmartStatusClass(del);
           let isIncidentAffected = false;
           if (statusClass !== 'completed' && statusClass !== 'problem') {
             if (hasCarIncidentOnDate(del['ID_Авто'], del['Дата'])) {
@@ -2826,7 +2879,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
         groupDiv.innerHTML = `<div class="list-group-title">${formattedDate}</div>`;
         groupDels.forEach(del => {
           const row = document.createElement('div');
-          let statusClass = getDeliveryStatusClass(del['Статус']);
+          let statusClass = getSmartStatusClass(del);
           let isIncidentAffected = false;
           if (statusClass !== 'completed' && statusClass !== 'problem') {
             if (hasCarIncidentOnDate(del['ID_Automobile'] || del['ID_Авто'], del['Дата'])) {
@@ -2863,7 +2916,7 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
     }
     function createDeliveryCard(del, showCarBadge = false) {
       const card = document.createElement('div');
-      let statusClass = getDeliveryStatusClass(del['Статус']);
+      let statusClass = getSmartStatusClass(del);
       let isIncidentAffected = false;
       if (statusClass !== 'completed' && statusClass !== 'problem') {
         if (hasCarIncidentOnDate(del['ID_Авто'], del['Дата'])) {
@@ -3704,7 +3757,7 @@ function renderClients() {
           btn.disabled = false;
           lucide.createIcons();
           if(res && res.success) {
-             alert('Синхронізація успішна!\nДодано нових записів: ' + res.added + '\nОновлено існуючих: ' + res.updated + '\nDebug:\nAlserUsers: ' + res.debug_alserUsers + '\nOurDrivers: ' + res.debug_ourDrivers + '\nMapped: ' + res.debug_mapped + '\nMatchedEvents: ' + res.debug_matchedEvents);
+             console.log('Синхронізація успішна', res);
              loadData(); // reload calendar
           } else {
              alert('Помилка: ' + (res ? res.error : 'Невідома помилка'));

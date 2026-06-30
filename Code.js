@@ -1696,54 +1696,85 @@ function syncAlserData(clientTimestamp) {
     }
   }
   
-  var today = clientTimestamp ? new Date(clientTimestamp) : new Date();
-  var dateStr = Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM-dd");
-  
-  var dataUrl = "https://api.alser.ua/calendar/?date=" + dateStr;
-  var dataOptions = {
-    'method': 'get',
-    'headers': {
-      'Cookie': cookieString,
-      'X-Requested-With': 'XMLHttpRequest',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-    },
-    'muteHttpExceptions': true
-  };
-  
-  var dataResponse = UrlFetchApp.fetch(dataUrl, dataOptions);
-  var html = dataResponse.getContentText();
+  var baseDate = clientTimestamp ? new Date(clientTimestamp) : new Date();
+  var ourDrivers = getDrivers();
+  function normalizeName(name) {
+    return name.toLowerCase().replace(/[^а-яієїґa-z\s]/g, '').trim().split(/\s+/).sort().join('');
+  }
   
   var added = 0;
   var updated = 0;
+  var debugMatchedEvents = 0;
+  var debug_alserUsers = 0;
+  var debug_ourDrivers = ourDrivers.length;
+  var debug_mapped = 0;
   
+  var existingDeliveries = getDeliveries();
+  var existingDealIds = {};
+  existingDeliveries.forEach(function(d) {
+    if (d['ID']) existingDealIds[d['ID'].toString()] = true;
+  });
+  
+  var newDeliveriesToAdd = [];
+  var dealDataMap = {};
+
+  // Отримуємо HTML для 7 днів починаючи від baseDate
+  var mergedHtml = "";
+  for (var dayOffset = 0; dayOffset < 7; dayOffset++) {
+    var currentDate = new Date(baseDate.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+    var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    
+    var dataUrl = "https://api.alser.ua/calendar/?date=" + dateStr;
+    var dataOptions = {
+      'method': 'get',
+      'headers': {
+        'Cookie': cookieString,
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      },
+      'muteHttpExceptions': true
+    };
+    
+    try {
+      var dataResponse = UrlFetchApp.fetch(dataUrl, dataOptions);
+      var dayHtml = dataResponse.getContentText();
+      mergedHtml += "\n" + dayHtml;
+      
+      // Збираємо deal_fields для кожного дня в загальну мапу dealDataMap
+      var dataRegex = /var data = (\[[\s\S]*?\]);\n/;
+      var dataMatch = dataRegex.exec(dayHtml);
+      if (dataMatch) {
+        var parsedData = JSON.parse(dataMatch[1]);
+        parsedData.forEach(function(d) {
+          dealDataMap[d.deal_id.toString()] = d;
+        });
+      }
+    } catch(e) {
+      // ігноруємо помилку завантаження одного дня і йдемо далі
+    }
+  }
+
   try {
-    // 1. Build dictionary of Alser users: userId -> fullname
+    // 1. Збираємо список користувачів з усього об'єднаного HTML
     var userRegex = /<div[^>]*data-userId="([^"]*)"[^>]*data-fullname="([^"]*)"/g;
     var alserUsers = {};
     var userMatch;
-    while ((userMatch = userRegex.exec(html)) !== null) {
+    while ((userMatch = userRegex.exec(mergedHtml)) !== null) {
       alserUsers[userMatch[1].trim()] = userMatch[2].trim();
     }
     
-    // 2. Fetch our system drivers
-    var ourDrivers = getDrivers();
+    debug_alserUsers = Object.keys(alserUsers).length;
     
-    // Helper to normalize name: "Денис Юрасов" -> "дениссвистун" -> sorted "денисюрасов"
-    function normalizeName(name) {
-      return name.toLowerCase().replace(/[^а-яієїґa-z\s]/g, '').trim().split(/\s+/).sort().join('');
-    }
-    
-    // 3. Create mapping from Alser userId -> our Driver ID
+    // 3. Мапимо користувачів Alser на наших замірників
     var alserIdToOurDriver = {};
     for (var aId in alserUsers) {
       var aNameNorm = normalizeName(alserUsers[aId]);
-      if (aNameNorm.indexOf('белонін') !== -1) continue; // Ignore Belonin
+      if (aNameNorm.indexOf('белонін') !== -1) continue;
       
       for (var i = 0; i < ourDrivers.length; i++) {
         var dNameNorm = normalizeName(ourDrivers[i]['Ім\'я']);
         if (dNameNorm.indexOf('белонін') !== -1) continue;
         
-        // Exact normalized match (handles flipped first/last name)
         if (aNameNorm === dNameNorm || aNameNorm.indexOf(dNameNorm) !== -1 || dNameNorm.indexOf(aNameNorm) !== -1) {
           alserIdToOurDriver[aId] = ourDrivers[i];
           break;
@@ -1751,40 +1782,37 @@ function syncAlserData(clientTimestamp) {
       }
     }
     
-    // 4. Fetch existing deliveries to avoid duplicates
-    var existingDeliveries = getDeliveries();
-    var existingDealIds = {};
-    existingDeliveries.forEach(function(d) {
-      if (d['ID']) existingDealIds[d['ID'].toString()] = true;
-    });
+    debug_mapped = Object.keys(alserIdToOurDriver).length;
     
-    var parts = dateStr.split('-');
-    var targetDayStr = parts[2] + '.' + parts[1]; // e.g. "24.06"
-    var dayBlockRegex = new RegExp('<div class="currentDay"[^>]*>' + targetDayStr + '[^<]*<\\/div>([\\s\\S]*?)(?=<div class="currentDay"|$)', 'i');
-    var dayMatch = dayBlockRegex.exec(html);
-    var targetHtml = dayMatch ? dayMatch[1] : "";
-    
-    var scopes = targetHtml.split('<div class="scopeName">');
-    var newDeliveriesToAdd = [];
-    var debugMatchedEvents = 0;
-    
-    // Extract JSON payload with all deal details (address, phone, name)
-    var dealDataMap = {};
-    var dataRegex = /var data = (\[[\s\S]*?\]);\n/;
-    var dataMatch = dataRegex.exec(html); // match on FULL html, not just targetHtml
-    if (dataMatch) {
-      try {
-        var parsedData = JSON.parse(dataMatch[1]);
-        parsedData.forEach(function(d) {
-           dealDataMap[d.deal_id.toString()] = d;
-        });
-      } catch (e) {
-        // ignore parse errors
+    // Створюємо масив блоків по днях для всіх 7 днів
+    var scopes = [];
+    for (var dayOffset = 0; dayOffset < 7; dayOffset++) {
+      var currentDate = new Date(baseDate.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+      var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "yyyy-MM-dd");
+      
+      var parts = dateStr.split('-');
+      var targetDayStr = parts[2] + '.' + parts[1]; // e.g. "24.06"
+      var dayBlockRegex = new RegExp('<div class="currentDay"[^>]*>' + targetDayStr + '[^<]*<\\/div>([\\s\\S]*?)(?=<div class="currentDay"|$)', 'i');
+      var dayMatch = dayBlockRegex.exec(mergedHtml);
+      var targetHtml = dayMatch ? dayMatch[1] : "";
+      
+      if (targetHtml) {
+        var dayScopes = targetHtml.split('<div class="scopeName">');
+        for (var sIdx = 1; sIdx < dayScopes.length; sIdx++) {
+          // Зберігаємо дату разом із кожним блоком для правильного запису в таблицю
+          scopes.push({
+            date: dateStr,
+            html: dayScopes[sIdx]
+          });
+        }
       }
     }
+
     
-    for (var scopeIdx = 1; scopeIdx < scopes.length; scopeIdx++) {
-        var scopeHtml = scopes[scopeIdx];
+    for (var scopeIdx = 0; scopeIdx < scopes.length; scopeIdx++) {
+        var scopeItem = scopes[scopeIdx];
+        var scopeHtml = scopeItem.html;
+        var dateStr = scopeItem.date;
         var groupMatch = scopeHtml.match(/^([^<]*)<\/div>/);
         var groupName = groupMatch ? groupMatch[1].trim() : "";
         
