@@ -92,6 +92,8 @@ function doGet(e) {
         result = saveEmployee(payload);
       } else if (action === 'deleteEmployee') {
         result = deleteEmployee(payload.id);
+      } else if (action === 'getResting') {
+        result = getRestingData();
       } else if (action === 'sync_alser_data') {
         result = syncAlserData();
       } else {
@@ -176,6 +178,9 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     } else if (action === 'getDailyCrews') {
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: getDailyCrews() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'getResting') {
+      return ContentService.createTextOutput(JSON.stringify(getRestingData()))
         .setMimeType(ContentService.MimeType.JSON);
     }
     
@@ -271,6 +276,44 @@ function getDeliveries() {
     
     return obj;
   });
+}
+// -------------------------------------------------------------
+// Helper: format Date to the format used in Google Sheet (yyyy-mm-dd)
+// -------------------------------------------------------------
+function formatDateForSheet(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// -------------------------------------------------------------
+// Helper: filter deliveries by a given Date object
+// -------------------------------------------------------------
+function filterDeliveriesByDate(deliveries, dateObj) {
+  const target = formatDateForSheet(dateObj);
+  return deliveries.filter(d => {
+    const raw = String(d['Дата'] || '').trim();
+    // If sheet uses dd.mm.yyyy, convert to yyyy-mm-dd for comparison
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(raw)) {
+      const [day, month, year] = raw.split('.');
+      return `${year}-${month}-${day}` === target;
+    }
+    // Otherwise assume already in yyyy-mm-dd
+    return raw === target;
+  });
+}
+
+// -------------------------------------------------------------
+// Public wrapper used by UI (renderDayView)
+// -------------------------------------------------------------
+function getFilteredDeliveries(dateObj) {
+  try {
+    return filterDeliveriesByDate(state.deliveries || [], dateObj);
+  } catch (e) {
+    console.warn('⚠️ getFilteredDeliveries error:', e);
+    return [];
+  }
 }
 
 function getClients() {
@@ -1123,6 +1166,58 @@ function getDailyCrews() {
     });
     return obj;
   });
+}
+
+// -------------------------------------------------------------
+// Public helper: Fetch resting/holiday calendar entries from Alser API
+// -------------------------------------------------------------
+function getRestingData() {
+  try {
+    var loginUrl = "https://api.alser.ua/calendar/login.php";
+    var payload = {
+      'login': '473829bma',
+      'password': '2GQNDmUp910N'
+    };
+    
+    var options = {
+      'method': 'post',
+      'payload': payload,
+      'headers': {
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      },
+      'muteHttpExceptions': true
+    };
+    
+    var response = UrlFetchApp.fetch(loginUrl, options);
+    var cookies = response.getAllHeaders()['Set-Cookie'];
+    var cookieString = "";
+    if (cookies) {
+      if (Array.isArray(cookies)) {
+        cookieString = cookies.map(function(c) { return c.split(';')[0]; }).join('; ');
+      } else {
+        cookieString = cookies.split(';')[0];
+      }
+    }
+    
+    var restingUrl = "https://api.alser.ua/calendar/restingManage.php";
+    var restingOptions = {
+      'method': 'get',
+      'headers': {
+        'Cookie': cookieString,
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      },
+      'muteHttpExceptions': true
+    };
+    
+    var restingResponse = UrlFetchApp.fetch(restingUrl, restingOptions);
+    var data = JSON.parse(restingResponse.getContentText());
+    return { status: 'success', data: data };
+  } catch (e) {
+    Logger.log("Помилка отримання вихідних Alser: " + e.toString());
+    return { status: 'error', message: e.toString() };
+  }
 }
 
 // ====== АВТОМАТИЧНІ РОЗСИЛКИ ======
