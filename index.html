@@ -1145,10 +1145,11 @@ body.light-theme .login-form-group label { color: #4B5563; }
       </div>
         
         <div class="dash-cards-grid" style="grid-template-columns: repeat(3, 1fr);">
-          <div class="dash-card dash-dark">
-            <div class="dash-title">Найактивніше авто</div>
-            <div class="dash-value" id="analytics-top-car-name">-</div>
-            <div style="color: #9ca3af; font-size: 13px; margin-top: 5px;" id="analytics-top-car-km">0 км / 0 замірів</div>
+          <div class="dash-card dash-dark" style="min-height: 120px;">
+            <div class="dash-title">Рейтинг менеджерів (Топ-3)</div>
+            <div style="font-size: 13px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; color: var(--text-color);" id="analytics-top-managers-list">
+              -
+            </div>
           </div>
           <div class="dash-card dash-dark">
             <div class="dash-title">Менеджер періоду</div>
@@ -4211,29 +4212,32 @@ function renderAnalytics() {
     const currDels = filterDeliveriesByDateRange(state.deliveries, ranges.curr.start, ranges.curr.end);
     const prevDels = filterDeliveriesByDateRange(state.deliveries, ranges.prev.start, ranges.prev.end);
     
-    // Top Car (Mock mileage)
-    const carCounts = {};
-    currDels.forEach(d => {
-        const key = d['ID_Авто'] || 'Невідомий';
-        carCounts[key] = (carCounts[key] || 0) + 1;
-    });
-    const sortedCars = Object.keys(carCounts).map(k => ({ name: k, count: carCounts[k] })).sort((a,b) => b.count - a.count);
-    if (sortedCars.length > 0) {
-        document.getElementById('analytics-top-car-name').innerText = window.getCarName(sortedCars[0].name);
-        const mockKm = sortedCars[0].count * 15;
-        document.getElementById('analytics-top-car-km').innerText = `${mockKm} км / ${sortedCars[0].count} замірів`;
-    } else {
-        document.getElementById('analytics-top-car-name').innerText = '-';
-        document.getElementById('analytics-top-car-km').innerText = '0 км / 0 замірів';
-    }
-    
-    // Top Manager
+    // Top Managers (Top-3)
     const mgrCounts = {};
     currDels.forEach(d => {
         const key = d['ID_Менеджера'] || 'Невідомий';
         mgrCounts[key] = (mgrCounts[key] || 0) + 1;
     });
-    const sortedMgrs = Object.keys(mgrCounts).map(k => ({ name: k, count: mgrCounts[k] })).sort((a,b) => b.count - a.count);
+    const sortedMgrs = Object.keys(mgrCounts)
+        .map(k => ({ name: k, count: mgrCounts[k] }))
+        .sort((a,b) => b.count - a.count);
+
+    const topListContainer = document.getElementById('analytics-top-managers-list');
+    if (topListContainer) {
+        if (sortedMgrs.length > 0) {
+            const html = sortedMgrs.slice(0, 3).map((m, idx) => `
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: ${idx < 2 && idx < sortedMgrs.length - 1 ? '1px solid var(--border-color)' : 'none'}; padding-bottom: 4px;">
+                    <span><b>${idx + 1}.</b> ${m.name}</span>
+                    <span style="color:var(--accent-blue); font-weight:700;">${m.count} замірів</span>
+                </div>
+            `).join('');
+            topListContainer.innerHTML = html;
+        } else {
+            topListContainer.innerHTML = '<div>Немає даних</div>';
+        }
+    }
+    
+    // Менеджер періоду (№1)
     if (sortedMgrs.length > 0) {
         document.getElementById('analytics-top-manager-name').innerText = sortedMgrs[0].name;
         document.getElementById('analytics-top-manager-count').innerText = `${sortedMgrs[0].count} замірів`;
@@ -4242,9 +4246,9 @@ function renderAnalytics() {
         document.getElementById('analytics-top-manager-count').innerText = '0 замірів';
     }
     
-    // Success Rate
-    const deliveredCurr = currDels.filter(d => d['Статус_оплати'] === 'Виконано').length;
-    const deliveredPrev = prevDels.filter(d => d['Статус_оплати'] === 'Виконано').length;
+    // Success Rate (Статус виконання заміру: 'Виконано' або 'Завершено')
+    const deliveredCurr = currDels.filter(d => ['Виконано', 'Завершено'].includes(d['Статус'] || d['status'])).length;
+    const deliveredPrev = prevDels.filter(d => ['Виконано', 'Завершено'].includes(d['Статус'] || d['status'])).length;
     const currRate = currDels.length ? Math.round((deliveredCurr / currDels.length) * 100) : 0;
     const prevRate = prevDels.length ? Math.round((deliveredPrev / prevDels.length) * 100) : 0;
     
