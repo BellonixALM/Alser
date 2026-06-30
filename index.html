@@ -1750,8 +1750,13 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       const rawStatus = del['Статус'] || del['status'] || '';
       const lowerStatus = rawStatus.trim().toLowerCase();
       
-      // Якщо статус явно вказаний і не дефолтний — використовуємо маппінг
-      if (lowerStatus && lowerStatus !== 'заплановано' && lowerStatus !== 'planned' && lowerStatus !== 'open') {
+      // Якщо статус явно вказаний і це не дефолтне "заплановано/planned/open/новий" — використовуємо маппінг
+      if (lowerStatus && 
+          lowerStatus !== 'заплановано' && 
+          lowerStatus !== 'planned' && 
+          lowerStatus !== 'open' && 
+          lowerStatus !== 'новий' &&
+          lowerStatus !== 'новый') {
         return getDeliveryStatusClass(rawStatus);
       }
       
@@ -1762,15 +1767,25 @@ var scriptUrlTemplate = "<?= scriptUrl ?>";
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      let delDate;
+      let delDate = null;
       // Підтримуємо формати дат: dd.mm.yyyy, yyyy-mm-dd
       if (dateStr.includes('.')) {
         const parts = dateStr.split('.');
         if (parts.length === 3) {
-          delDate = new Date(parts[2], parts[1] - 1, parts[0]);
+          // Важливо: переконуємося, що рік повний (напр. 2026)
+          let year = parseInt(parts[2]);
+          if (year < 100) year += 2000;
+          delDate = new Date(year, parseInt(parts[1]) - 1, parseInt(parts[0]));
         }
       } else if (dateStr.includes('-')) {
-        delDate = new Date(dateStr);
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            delDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          } else {
+            delDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          }
+        }
       }
       
       if (!delDate || isNaN(delDate.getTime())) return getDeliveryStatusClass(rawStatus);
