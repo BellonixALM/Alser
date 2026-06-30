@@ -123,6 +123,10 @@ async function openGlobalMap() {
   try {
   document.getElementById('map-modal').classList.add('show');
   
+  const loadingOverlay = document.getElementById('map-loading-overlay') || { style: {} };
+  const loadingText = document.getElementById('map-loading-text') || {};
+  loadingOverlay.style.display = 'flex';
+  
   if (!fleetMap) {
     // Need a tiny timeout for leaflet to get correct container size inside a newly shown modal
     await sleep(100); 
