@@ -3789,6 +3789,12 @@ function renderClients() {
           }
         });
       }
+
+      // Запуск автоматичної синхронізації кожні 15 хвилин (15 хв = 900 000 мс)
+      setInterval(function() {
+        console.log("Автоматична фонова синхронізація з Alser...");
+        triggerAlserSync();
+      }, 15 * 60 * 1000);
     }
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
       initApp();
